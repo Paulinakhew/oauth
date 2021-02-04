@@ -4,7 +4,7 @@ import requests
 import json
 
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, redirect, url_for, flash, make_response, session
+from flask import Flask, request, redirect, session
 from urllib.parse import parse_qs, urlencode, urlparse
 from urllib import parse
 
@@ -22,7 +22,7 @@ authorize_url = 'https://github.com/login/oauth/authorize'
 token_url = 'https://github.com/login/oauth/access_token'
 
 # This is the Github base URL we can use to make authenticated API requests
-api_url_nase = 'https://api.github.com/'
+api_url_base = 'https://api.github.com/'
 
 # The URL for this script, used as the redirect URL
 base_url = 'http://localhost:8000/callback'
@@ -57,7 +57,6 @@ def login():
 @app.route('/logout', methods=['GET'])
 def logout():
     session.pop('access_token', None)
-    print(session['access_token'])
     return redirect('/')
 
 
@@ -70,7 +69,7 @@ def callback():
     code = parse_qs(parsed.query)['code'][0]
     state = parse_qs(parsed.query)['state'][0]
 
-    if state and state != session['state']:
+    if (not state) or (state != session['state']):
         return redirect('/?error=invalid_state')
     params = {
         'grant_type': 'authorization_code',
@@ -85,6 +84,20 @@ def callback():
     session['access_token'] = token['access_token']
 
     return redirect('/')
+
+
+@app.route('/repos', methods=['GET'])
+def repos():
+    if 'action' in parsed.query:
+        repos = api_request(api_url_base + 'user/repos?' + urlencode({
+            'sort': 'created',
+            'direction': 'desc'
+        }), None)
+        return_str = '<ul>'
+        for repo in repos:
+            return_str.append('<a href="' + repo['html_url'] + '">' + repo['name'] + '</a></li>')
+        return_str.append('</ul>')
+        return return_str
 
 
 # If there is an access token in the session
@@ -106,7 +119,7 @@ def api_request(url:str, body:dict, post:bool=False):
         'User-Agent: https://example-app.com/'
     }
 
-    if session['access_token']:
+    if 'access_token' in session:
         headers['Authorization'] = f"Bearer {session['access_token']}"
 
     if post:
