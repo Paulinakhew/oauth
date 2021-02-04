@@ -26,3 +26,6 @@ Run the index.py file
 ```
 python3 index.py 
 ```
+
+## Final step
+View http://localhost:8000/ in your browser!

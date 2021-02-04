@@ -1,5 +1,6 @@
 <?php
 // Fill these out with the values you got from Github
+// FIXME: it seems like these aren't being passed in
 $githubClientID = $_ENV["GITHUB_CLIENT_ID"];
 $githubClientSecret = $_ENV["GITHUB_CLIENT_SECRET"];
 
