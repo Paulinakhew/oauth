@@ -4,7 +4,7 @@ import requests
 import json
 
 from dotenv import load_dotenv
-from flask import Flask, request, redirect, session
+from flask import Flask, make_response, request, redirect, session
 from urllib.parse import parse_qs, urlencode, urlparse
 from urllib import parse
 
@@ -50,7 +50,7 @@ def login():
     }
 
     # Redirect the user to GitHub's authorization page
-    res = redirect(f'{authorize_url}?{urlencode(params)}')
+    res = make_response(redirect(f'{authorize_url}?{urlencode(params)}'))
     return res
 
 
@@ -71,33 +71,47 @@ def callback():
 
     if (not state) or (state != session['state']):
         return redirect('/?error=invalid_state')
-    params = {
-        'grant_type': 'authorization_code',
-        'client_id': github_client_id,
-        'client_secret': github_client_secret,
-        'redirect_url': base_url,
-        'code': code
-    }
 
-    token = api_request(token_url, params)
-    # FIXME: no token['access_token'] to be found
+    token = requests.post(
+        token_url,
+        data={
+            'grant_type': 'authorization_code',
+            'client_id': github_client_id,
+            'client_secret': github_client_secret,
+            'redirect_url': base_url,
+            'code': code
+        },
+        headers={
+            'Accept': 'application/vnd.github.v3+json, application/json',
+            'User-Agent': 'https://example-app.com/'
+        }
+    ).json()
+
     session['access_token'] = token['access_token']
 
-    return redirect('/')
+    return redirect('/callback')
 
 
 @app.route('/repos', methods=['GET'])
 def repos():
-    if 'action' in parsed.query:
-        repos = api_request(api_url_base + 'user/repos?' + urlencode({
-            'sort': 'created',
-            'direction': 'desc'
-        }), None)
-        return_str = '<ul>'
-        for repo in repos:
-            return_str.append('<a href="' + repo['html_url'] + '">' + repo['name'] + '</a></li>')
-        return_str.append('</ul>')
-        return return_str
+    url = api_url_base + 'user/repos?' + urlencode({
+        'sort': 'created',
+        'direction': 'desc'
+    })
+
+    repos = requests.get(
+        url,
+        headers={
+            'Content-Type': 'application/json',
+            'Authorization': f"Bearer {session['access_token']}"
+        }
+    ).json()
+    return_str = '<ul>'
+
+    for repo in repos:
+        return_str += '<a href="' + repo['html_url'] + '">' + repo['name'] + '</a></li><br>'
+    return_str += '</ul>'
+    return return_str
 
 
 # If there is an access token in the session
@@ -113,28 +127,28 @@ def index():
         <p><a href="/login">Log In</a></p>'''
 
 
-def api_request(url:str, body:dict, post:bool=False):
-    headers = {
-        'Accept: application/vnd.github.v3+json, application/json',
-        'User-Agent: https://example-app.com/'
-    }
+# def api_request(url:str, body:dict, post:bool=False):
+#     headers = {
+#         'Accept: application/vnd.github.v3+json, application/json',
+#         'User-Agent: https://example-app.com/'
+#     }
 
-    if 'access_token' in session:
-        headers['Authorization'] = f"Bearer {session['access_token']}"
+#     if 'access_token' in session:
+#         headers['Authorization'] = f"Bearer {session['access_token']}"
 
-    if post:
-        response = requests.post(
-            url,
-            data=json.dumps(body),
-            headers=headers
-        )
-    else:
-        response = requests.get(
-            url,
-            headers=headers
-        )
+#     if post:
+#         response = requests.post(
+#             url,
+#             data=json.dumps(body),
+#             headers=headers
+#         )
+#     else:
+#         response = requests.get(
+#             url,
+#             headers=headers
+#         )
 
-    return response.json()
+#     return response.json()
 
 
 if __name__=="__main__":
