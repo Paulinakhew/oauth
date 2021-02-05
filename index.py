@@ -28,6 +28,7 @@ api_url_base = 'https://api.github.com/'
 base_url = 'http://localhost:8000/callback'
 
 # Start up the Flask app
+# Use flask session so we have a place to store things between redirects
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
 
@@ -109,7 +110,7 @@ def repos():
     return_str = '<ul>'
 
     for repo in repos:
-        return_str += '<a href="' + repo['html_url'] + '">' + repo['name'] + '</a></li><br>'
+        return_str += '<li><a href="' + repo['html_url'] + '">' + repo['name'] + '</a></li>'
     return_str += '</ul>'
     return return_str
 
@@ -119,7 +120,7 @@ def repos():
 @app.route('/', methods=['GET'])
 def index():
     if 'access_token' in session:
-        return ''''<h3>Logged In</h3>
+        return '''<h3>Logged In</h3>
         <p><a href="/repos">View Repos</a></p>
         <p><a href="/logout">Log Out</a></p>'''
     else:
